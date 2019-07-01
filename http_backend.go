@@ -134,7 +134,6 @@ func (h *httpBackend) Cache(request *http.Request, bodySize int, cacheDir string
 
 	for _, filter := range disallowedUrls {
 		if filter.MatchString(request.URL.String()) {
-			print("NOT CACHING MATCHED URL: %s\n", request.URL.String())
 			return h.Do(request, bodySize)
 		}
 	}
