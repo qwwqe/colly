@@ -85,10 +85,10 @@ type Collector struct {
 	// CacheDir specifies a location where GET requests are cached as files.
 	// When it's not defined, caching is disabled.
 	CacheDir string
-	// CacheFilter enables selective caching (via setting CacheDir).
-	// The provided function should return true if the Response is to be cached,
-	// false otherwise.
-	CacheFilter func(*Response) bool
+	// DisallowedCacheURLFilters prevents Requests whose URL matches any of these
+	// regexes from being cached or from having previously cached versions of them
+	// returned.
+	DisallowedCacheURLFilters []*regexp.Regexp
 	// IgnoreRobotsTxt allows the Collector to ignore any restrictions set by
 	// the target host's robots.txt file.  See http://www.robotstxt.org/ for more
 	// information.
@@ -329,13 +329,10 @@ func CacheDir(path string) func(*Collector) {
 	}
 }
 
-// CacheFilter enables selective caching.
-// Responses which generate a true return value when passed to 'filter' will be
-// cached in the directory indicated by 'path'.
-func CacheFilter(path string, filter func(res *Response) bool) func(*Collector) {
+// DisallowedCacheURLFilters specifies url regexes on which to bypass cache.
+func DisallowedCacheURLFilters(filters ...*regexp.Regexp) func(*Collector) {
 	return func(c *Collector) {
-		c.CacheDir = path
-		c.CacheFilter = filter
+		c.DisallowedCacheURLFilters = filters
 	}
 }
 
@@ -617,7 +614,7 @@ func (c *Collector) fetch(u, method string, depth int, requestData io.Reader, ct
 	}
 
 	origURL := req.URL
-	response, err := c.backend.Cache(req, c.MaxBodySize, c.CacheDir, c.CacheFilter)
+	response, err := c.backend.Cache(req, c.MaxBodySize, c.CacheDir, c.DisallowedCacheURLFilters)
 	if proxyURL, ok := req.Context().Value(ProxyURLKey).(string); ok {
 		request.ProxyURL = proxyURL
 	}

@@ -127,9 +127,16 @@ func (h *httpBackend) GetMatchingRule(domain string) *LimitRule {
 	return nil
 }
 
-func (h *httpBackend) Cache(request *http.Request, bodySize int, cacheDir string, cacheFilter func(filterResponse *Response) bool) (*Response, error) {
+func (h *httpBackend) Cache(request *http.Request, bodySize int, cacheDir string, disallowedUrls []*regexp.Regexp) (*Response, error) {
 	if cacheDir == "" || request.Method != "GET" {
 		return h.Do(request, bodySize)
+	}
+
+	for _, filter := range disallowedUrls {
+		if filter.MatchString(request.URL.String()) {
+			print("NOT CACHING MATCHED URL: %s\n", request.URL.String())
+			return h.Do(request, bodySize)
+		}
 	}
 
 	sum := sha1.Sum([]byte(request.URL.String()))
@@ -146,11 +153,6 @@ func (h *httpBackend) Cache(request *http.Request, bodySize int, cacheDir string
 	}
 	resp, err := h.Do(request, bodySize)
 	if err != nil || resp.StatusCode >= 500 {
-		return resp, err
-	}
-
-	if cacheFilter != nil && !cacheFilter(resp) {
-		print("SKIPPING CACHE ON %s\n", request.URL.String())
 		return resp, err
 	}
 
